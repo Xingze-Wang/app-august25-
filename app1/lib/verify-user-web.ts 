@@ -1,0 +1,27 @@
+import { cookies } from 'next/headers';
+
+// 复用你现有的 Supabase admin 客户端（lib/supabase.js）
+import { supabaseAdmin } from '@/lib/supabase.js';
+
+function getBearer(req: Request): string {
+  const h = req.headers.get('authorization') || '';
+  if (h.startsWith('Bearer ')) return h.slice(7);
+  const ck = cookies();
+  const t = ck.get('sb-token')?.value || ck.get('sb-access-token')?.value || '';
+  return t || '';
+}
+
+export async function verifyUserWeb(req: Request): Promise<{ id: string; [k: string]: any }> {
+  const token = getBearer(req);
+  if (!token) throw new Error('Missing or invalid authorization');
+
+  if (!process.env.SUPABASE_URL) throw new Error('Supabase env not configured');
+
+  try {
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !data?.user) throw new Error(error?.message || 'Invalid or expired token');
+    return data.user as any;
+  } catch (e) {
+    throw new Error('Invalid or expired token');
+  }
+}
